@@ -58,14 +58,17 @@ namespace WebScraper
             string hotelName = GetInnerText(html, "//*[@id='hp_hotel_name']");
             string address = GetInnerText(html, "//*[@id='hp_address_subtitle']/text()");
             string ratingStars = GetInnerText(html, "//*[@id='wrap-hotelpage-top']/h1/span[2]/span/i");
-            string reviewPoints = GetInnerText(html, "//*[@id='js--hp-gallery-scorecard']/a/span[2]");
+
+            string gainedPoints = html.DocumentNode.SelectSingleNode("//*[@id='js--hp-gallery-scorecard']/a/span[2]/span[1]").InnerText;
+            string totalReviewPoints = html.DocumentNode.SelectSingleNode("//*[@id='js--hp-gallery-scorecard']/a/span[2]/span[2]/span").InnerText;
+            string reviewPoints = gainedPoints + "/" + totalReviewPoints;
             string numberOfReviews = GetInnerText(html, "//*[@id='js--hp-gallery-scorecard']/span/strong");
 
             StringBuilder description = new StringBuilder();
             var descriptionParagraphs = html.DocumentNode.SelectNodes("//div[@id='summary']/p");
             foreach (var item in descriptionParagraphs)
             {
-                description.Append(item.InnerText);
+                description.AppendLine(Regex.Replace(item.InnerText, @"^\s+|\s+$|\n", string.Empty));
             }
 
             List<string> roomTypes = new List<string>();
@@ -73,15 +76,16 @@ namespace WebScraper
             foreach (var item in roomTypesSection)
             {
                 var name = item.SelectSingleNode("(td)[2]").InnerText;
-                roomTypes.Add(name);
+                roomTypes.Add(Regex.Replace(name, @"^\s+|\s+$|\n", string.Empty));
             }
-
-            List<string> alternativeHotels = new List<string>();
+            
+            var alternativeHotels = new List<(string name, string description)>();
             var alternativeHotelsSections = html.DocumentNode.SelectNodes("//*[@id='althotelsRow']/td");
             foreach (var item in alternativeHotelsSections)
             {
                 string alternativeHotelName = item.SelectSingleNode($"{item.XPath}/p[@class='althotels-name']/a[@class='althotel_link']/text()").InnerText;
-                alternativeHotels.Add(alternativeHotelName);
+                string alternativeHotelDescription = item.SelectSingleNode($"{item.XPath}/span").InnerText;
+                alternativeHotels.Add((name: Regex.Replace(alternativeHotelName, @"^\s+|\s+$|\n", string.Empty), description: Regex.Replace(alternativeHotelDescription, @"^\s+|\s+$|\n", string.Empty)));
             }
 
             return new ExtractedData
@@ -100,7 +104,7 @@ namespace WebScraper
         private string GetInnerText(HtmlDocument html, string xpath)
         {
             var node = html.DocumentNode.SelectSingleNode(xpath);
-            return node?.InnerText?.Replace(" ", "");
+            return node.InnerHtml;
         }
     }
 
@@ -110,12 +114,12 @@ namespace WebScraper
         {
             var myData = new
             {
-                hotelName = Regex.Replace(data.HotelName, @"\s+", string.Empty),
-                address = Regex.Replace(data.Address, @"\s+", string.Empty),
-                ratingStars = Regex.Replace(data.RatingStars, @"\s+", string.Empty),
-                reviewPoints = Regex.Replace(data.ReviewPoints, @"\s+", string.Empty),
-                numberOfReviews = Regex.Replace(data.NumberOfReviews, @"\s+", string.Empty),
-                description = Regex.Replace(data.Description, @"\s+", string.Empty),
+                hotelName = Regex.Replace(data.HotelName, @"^\s+|\s+$|\n", string.Empty),
+                address = Regex.Replace(data.Address, @"^\s+|\s+$|\n", string.Empty),
+                ratingStars = Regex.Replace(data.RatingStars, @"^\s+|\s+$|\n", string.Empty),
+                reviewPoints = Regex.Replace(data.ReviewPoints, @"^\s+|\s+$|\n", string.Empty),
+                numberOfReviews = Regex.Replace(data.NumberOfReviews, @"^\s+|\s+$|\n", string.Empty),
+                description = data.Description,
                 roomCategories = data.RoomCategories,
                 alternativeHotels = data.AlternativeHotels
             };
@@ -149,7 +153,7 @@ namespace WebScraper
         public string NumberOfReviews { get; set; }
         public string Description { get; set; }
         public List<string> RoomCategories { get; set; }
-        public List<string> AlternativeHotels { get; set; }
+        public List<(string name, string description)> AlternativeHotels { get; set; }
     }
 
 }
